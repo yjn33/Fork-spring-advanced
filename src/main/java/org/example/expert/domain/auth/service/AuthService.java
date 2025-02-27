@@ -23,28 +23,47 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    /*
+        리팩토링 이메일 중복 검사 메서드
+    */
+    private void existsByEmail(String email){
+
+        if (userRepository.existsByEmail(email)) {
+            throw new InvalidRequestException("이미 존재하는 이메일입니다.");
+        }
+
+        else{
+            return; // 이메일 중복이 아니라면 해당 메서드 정상종료
+        }
+    }
+
+
     @Transactional
     public SignupResponse signup(SignupRequest signupRequest) {
+
+        // 리팩토링: passwordEncoder실행전 이메일 중복 검사
+        existsByEmail(signupRequest.getEmail());
+        // 리팩토링
 
         String encodedPassword = passwordEncoder.encode(signupRequest.getPassword());
 
         UserRole userRole = UserRole.of(signupRequest.getUserRole());
 
-        if (userRepository.existsByEmail(signupRequest.getEmail())) {
-            throw new InvalidRequestException("이미 존재하는 이메일입니다.");
-        }
 
         User newUser = new User(
                 signupRequest.getEmail(),
                 encodedPassword,
                 userRole
         );
+
+
         User savedUser = userRepository.save(newUser);
 
         String bearerToken = jwtUtil.createToken(savedUser.getId(), savedUser.getEmail(), userRole);
 
         return new SignupResponse(bearerToken);
     }
+
 
     @Transactional(readOnly = true)
     public SigninResponse signin(SigninRequest signinRequest) {
@@ -60,4 +79,6 @@ public class AuthService {
 
         return new SigninResponse(bearerToken);
     }
+
+
 }
